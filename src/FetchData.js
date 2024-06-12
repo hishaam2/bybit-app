@@ -96,7 +96,7 @@ const FetchData = () => {
 
   return (
     <div className="table-container">
-      <h1>Hello World</h1>
+      <h1>Mahreen's ByBit Wallet</h1>
       <table {...getTableProps()} className="styled-table">
         <thead>
           {headerGroups.map(headerGroup => (
