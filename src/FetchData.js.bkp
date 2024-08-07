@@ -43,9 +43,8 @@ const FetchData = () => {
         complete: (results) => {
           const tradeHistory = results.data
             .filter(row => row.Currency === coin && row.Direction === 'BUY')
-            //.map(row => `${row.Time} | $${row['Filled Price']} (Qty: ${row.Quantity})`)
-            .map(row => `${row.Time} | $${parseFloat(row['Filled Price'])} (Qty: ${parseFloat(row.Quantity)})`)
-            .join('\n');
+            .map(row => `${row.Quantity} at $${row['Filled Price']} on ${row.Time}`)
+            .join(' | ');
 
           const totalQty = results.data
             .filter(row => row.Currency === coin && row.Direction === 'BUY')
@@ -67,24 +66,6 @@ const FetchData = () => {
     });
   }, []);
 
-  const fetchLivePrice = useCallback(async (coinSymbol) => {
-    try {
-      const response = await fetch(`https://api.coincap.io/v2/assets`);
-      if (!response.ok) throw new Error('Network response was not ok');
-      
-      const data = await response.json();
-      const assets = data.data;
-      
-      const asset = assets.find(asset => asset.symbol === coinSymbol);
-      if (!asset) throw new Error(`Asset with symbol ${coinSymbol} not found`);
-      
-      return parseFloat(asset.priceUsd).toFixed(2);
-    } catch (error) {
-      console.error('Error fetching live price:', error);
-      return null;
-    }
-  }, []);
-
   const fetchData = useCallback(async () => {
     const { signString, timestamp } = generateSignString({ accountType: 'UNIFIED' });
     const headers = generateHeaders(signString, timestamp);
@@ -99,16 +80,12 @@ const FetchData = () => {
         const formattedData = await Promise.all(resultList.flatMap(account =>
           account.coin.map(async coinData => {
             const { tradeHistory, avgBuyPrice } = await fetchTradeHistoryFromCSV(coinData.coin);
-            const livePrice = await fetchLivePrice(coinData.coin);
-            const pnl = livePrice && avgBuyPrice ? (((livePrice - avgBuyPrice) / avgBuyPrice) * 100).toFixed(2) : 0;
             return {
               coin: coinData.coin,
               walletBalance: coinData.walletBalance,
               usdValue: parseFloat(coinData.usdValue).toFixed(2),
               tradeHistory: tradeHistory,
               avgBuyPrice: avgBuyPrice,
-              livePrice: livePrice,
-              pnl: pnl,
             };
           })
         ));
@@ -121,7 +98,7 @@ const FetchData = () => {
       console.error('Error fetching data:', error);
     }
     setLoading(false);
-  }, [fetchTradeHistoryFromCSV, fetchLivePrice]);
+  }, [fetchTradeHistoryFromCSV]);
 
   useEffect(() => {
     fetchData();
@@ -141,16 +118,6 @@ const FetchData = () => {
     { Header: 'Wallet Balance', accessor: 'walletBalance' },
     { Header: 'USD Value', accessor: 'usdValue' },
     { Header: 'Average Buy Price', accessor: 'avgBuyPrice' },
-    { Header: 'Live Price', accessor: 'livePrice' },
-    {
-      Header: 'PnL',
-      accessor: 'pnl',
-      Cell: ({ value }) => (
-        <span style={{ color: value >= 0 ? 'green' : 'red' }}>
-          {value}%
-        </span>
-      ),
-    },
   ], []);
 
   const tableInstance = useTable({ columns, data }, useSortBy, useExpanded);
@@ -191,8 +158,8 @@ const FetchData = () => {
                     </tr>
                     {row.isExpanded && (
                       <tr>
-                        <td colSpan={columns.length} style={{ whiteSpace: 'pre-line' }}>
-                          {row.original.tradeHistory}
+                        <td colSpan={columns.length}>
+                          Trade History: {row.original.tradeHistory}
                         </td>
                       </tr>
                     )}
@@ -202,7 +169,7 @@ const FetchData = () => {
             </tbody>
           </table>
         </>
-    )}
+      )}
     </div>
   );
 };
